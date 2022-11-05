@@ -52,6 +52,7 @@ func NewAPI(usersRepo repo.UserRepository, sessionsRepo repo.SessionsRepository,
 
 	// Please create routing for endpoint `/cart/add` with POST method, Authentication and handle api.AddCart
 	// TODO: answer here
+	mux.Handle("/cart/add", api.Post(api.Auth(http.HandlerFunc(api.AddCart))))
 
 	return api
 }

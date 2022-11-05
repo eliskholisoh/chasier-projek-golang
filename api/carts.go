@@ -2,6 +2,7 @@ package api
 
 import (
 	"a21hc3NpZ25tZW50/model"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,6 +11,12 @@ import (
 func (api *API) AddCart(w http.ResponseWriter, r *http.Request) {
 	// Get username context to struct model.Cart.
 	//username := "" // TODO: replace this
+	cookie, _ := r.Cookie("session_token")
+	if cookie == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(model.ErrorResponse{Error: "http: named cookie not present"})
+		return
+	}
 
 	r.ParseForm()
 
@@ -33,8 +40,21 @@ func (api *API) AddCart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if len(list) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(model.ErrorResponse{Error: "Request Product Not Found"})
+	}
+
 	// Add data field Name, Cart and TotalPrice with struct model.Cart.
-	cart := model.Cart{} // TODO: replace this
+	session, _ := api.sessionsRepo.TokenExist(cookie.Value)
+	cart := model.Cart{
+		Name: session.Username,
+		Cart: list,
+	} // TODO: replace this
+
+	for _, product := range cart.Cart {
+		cart.TotalPrice += product.Total
+	}
 
 	_, err := api.cartsRepo.CartUserExist(cart.Name)
 	if err != nil {

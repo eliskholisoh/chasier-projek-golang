@@ -463,6 +463,169 @@ var _ = Describe("Cashier App", func() {
 			})
 		})
 
+		Describe("/user/logout", func() {
+			When("logout user with POST method", func() {
+				It("should return a wrong method", func() {
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodPost, "/user/logout", nil)
+					server.Handler().ServeHTTP(w, r)
+
+					ErrorResponse := model.ErrorResponse{}
+					json.NewDecoder(w.Body).Decode(&ErrorResponse)
+					Expect(w.Result().StatusCode).To(Equal(http.StatusMethodNotAllowed))
+					Expect(ErrorResponse.Error).To(Equal("Method is not allowed!"))
+				})
+			})
+
+			When("logout user with GET method, without login cookie", func() {
+				It("should return a cookie not found", func() {
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodGet, "/user/logout", nil)
+					server.Handler().ServeHTTP(w, r)
+
+					err := model.ErrorResponse{}
+					json.NewDecoder(w.Body).Decode(&err)
+
+					Expect(w.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+					Expect(err.Error).To(Equal("http: named cookie not present"))
+				})
+			})
+
+			When("logout user with GET method and login cookie", func() {
+				It("should return logout success and token not found on database", func() {
+					//register
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodPost, "/user/register", strings.NewReader("username=aditira&password=12345"))
+					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+					server.Handler().ServeHTTP(w, r)
+
+					//login
+					w = httptest.NewRecorder()
+					r = httptest.NewRequest(http.MethodPost, "/user/login", strings.NewReader("username=aditira&password=12345"))
+					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+					server.Handler().ServeHTTP(w, r)
+
+					var cookie *http.Cookie
+					var isCookieTokenExist bool
+					for _, c := range w.Result().Cookies() {
+						if c.Name == "session_token" {
+							isCookieTokenExist = true
+							cookie = c
+						}
+					}
+					Expect(isCookieTokenExist).To(BeTrue())
+
+					//logout
+					w = httptest.NewRecorder()
+					r = httptest.NewRequest(http.MethodGet, "/user/logout", nil)
+					r.AddCookie(cookie)
+					server.Handler().ServeHTTP(w, r)
+					Expect(w.Result().StatusCode).To(Equal(http.StatusOK))
+
+					_, err := sessionRepo.TokenExist(cookie.Value)
+					Expect(err.Error()).To(Equal("Token Not Found!"))
+
+					userRepo.ResetUser()
+				})
+			})
+		})
+
+		Describe("/user/img/profile", func() {
+			When("read image profile with POST method", func() {
+				It("should return a wrong method", func() {
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodPost, "/user/img/profile", nil)
+					server.Handler().ServeHTTP(w, r)
+
+					ErrorResponse := model.ErrorResponse{}
+					json.NewDecoder(w.Body).Decode(&ErrorResponse)
+					Expect(w.Result().StatusCode).To(Equal(http.StatusMethodNotAllowed))
+					Expect(ErrorResponse.Error).To(Equal("Method is not allowed!"))
+				})
+			})
+
+			When("read image profile with GET method, without login cookie", func() {
+				It("should return a cookie not found", func() {
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodGet, "/user/img/profile", nil)
+					server.Handler().ServeHTTP(w, r)
+
+					err := model.ErrorResponse{}
+					json.NewDecoder(w.Body).Decode(&err)
+
+					Expect(w.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+					Expect(err.Error).To(Equal("http: named cookie not present"))
+				})
+			})
+		})
+
+		Describe("/user/img/update-profile", func() {
+			When("update image profile with GET method", func() {
+				It("should return a wrong method", func() {
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodGet, "/user/img/update-profile", nil)
+					server.Handler().ServeHTTP(w, r)
+
+					ErrorResponse := model.ErrorResponse{}
+					json.NewDecoder(w.Body).Decode(&ErrorResponse)
+					Expect(w.Result().StatusCode).To(Equal(http.StatusMethodNotAllowed))
+					Expect(ErrorResponse.Error).To(Equal("Method is not allowed!"))
+				})
+			})
+
+			When("update image profile with POST method, without login cookie", func() {
+				It("should return a cookie not found", func() {
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodPost, "/user/img/update-profile", nil)
+					server.Handler().ServeHTTP(w, r)
+
+					err := model.ErrorResponse{}
+					json.NewDecoder(w.Body).Decode(&err)
+
+					Expect(w.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+					Expect(err.Error).To(Equal("http: named cookie not present"))
+				})
+			})
+
+			When("send empty request body with POST method", func() {
+				It("should return internal server error", func() {
+					//register
+					w := httptest.NewRecorder()
+					r := httptest.NewRequest(http.MethodPost, "/user/register", strings.NewReader("username=aditira&password=12345"))
+					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+					server.Handler().ServeHTTP(w, r)
+
+					//login
+					w = httptest.NewRecorder()
+					r = httptest.NewRequest(http.MethodPost, "/user/login", strings.NewReader("username=aditira&password=12345"))
+					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+					server.Handler().ServeHTTP(w, r)
+
+					var cookie *http.Cookie
+					var isCookieTokenExist bool
+					for _, c := range w.Result().Cookies() {
+						if c.Name == "session_token" {
+							isCookieTokenExist = true
+							cookie = c
+						}
+					}
+					Expect(isCookieTokenExist).To(BeTrue())
+
+					//read image profile
+					w = httptest.NewRecorder()
+					r = httptest.NewRequest(http.MethodPost, "/user/img/update-profile", nil)
+					r.AddCookie(cookie)
+					server.Handler().ServeHTTP(w, r)
+
+					Expect(w.Result().StatusCode).To(Equal(http.StatusInternalServerError))
+
+					userRepo.ResetUser()
+					sessionRepo.ResetSessions()
+				})
+			})
+
+		})
+
 		Describe("/cart/add", func() {
 			When("add product to cart with GET method", func() {
 				It("should return a wrong method", func() {
@@ -677,169 +840,6 @@ var _ = Describe("Cashier App", func() {
 					userRepo.ResetUser()
 					sessionRepo.ResetSessions()
 					cartRepo.ResetCarts()
-				})
-			})
-
-		})
-
-		Describe("/user/logout", func() {
-			When("logout user with POST method", func() {
-				It("should return a wrong method", func() {
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodPost, "/user/logout", nil)
-					server.Handler().ServeHTTP(w, r)
-
-					ErrorResponse := model.ErrorResponse{}
-					json.NewDecoder(w.Body).Decode(&ErrorResponse)
-					Expect(w.Result().StatusCode).To(Equal(http.StatusMethodNotAllowed))
-					Expect(ErrorResponse.Error).To(Equal("Method is not allowed!"))
-				})
-			})
-
-			When("logout user with GET method, without login cookie", func() {
-				It("should return a cookie not found", func() {
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodGet, "/user/logout", nil)
-					server.Handler().ServeHTTP(w, r)
-
-					err := model.ErrorResponse{}
-					json.NewDecoder(w.Body).Decode(&err)
-
-					Expect(w.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-					Expect(err.Error).To(Equal("http: named cookie not present"))
-				})
-			})
-
-			When("logout user with GET method and login cookie", func() {
-				It("should return logout success and token not found on database", func() {
-					//register
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodPost, "/user/register", strings.NewReader("username=aditira&password=12345"))
-					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-					server.Handler().ServeHTTP(w, r)
-
-					//login
-					w = httptest.NewRecorder()
-					r = httptest.NewRequest(http.MethodPost, "/user/login", strings.NewReader("username=aditira&password=12345"))
-					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-					server.Handler().ServeHTTP(w, r)
-
-					var cookie *http.Cookie
-					var isCookieTokenExist bool
-					for _, c := range w.Result().Cookies() {
-						if c.Name == "session_token" {
-							isCookieTokenExist = true
-							cookie = c
-						}
-					}
-					Expect(isCookieTokenExist).To(BeTrue())
-
-					//logout
-					w = httptest.NewRecorder()
-					r = httptest.NewRequest(http.MethodGet, "/user/logout", nil)
-					r.AddCookie(cookie)
-					server.Handler().ServeHTTP(w, r)
-					Expect(w.Result().StatusCode).To(Equal(http.StatusOK))
-
-					_, err := sessionRepo.TokenExist(cookie.Value)
-					Expect(err.Error()).To(Equal("Token Not Found!"))
-
-					userRepo.ResetUser()
-				})
-			})
-		})
-
-		Describe("/user/img/profile", func() {
-			When("read image profile with POST method", func() {
-				It("should return a wrong method", func() {
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodPost, "/user/img/profile", nil)
-					server.Handler().ServeHTTP(w, r)
-
-					ErrorResponse := model.ErrorResponse{}
-					json.NewDecoder(w.Body).Decode(&ErrorResponse)
-					Expect(w.Result().StatusCode).To(Equal(http.StatusMethodNotAllowed))
-					Expect(ErrorResponse.Error).To(Equal("Method is not allowed!"))
-				})
-			})
-
-			When("read image profile with GET method, without login cookie", func() {
-				It("should return a cookie not found", func() {
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodGet, "/user/img/profile", nil)
-					server.Handler().ServeHTTP(w, r)
-
-					err := model.ErrorResponse{}
-					json.NewDecoder(w.Body).Decode(&err)
-
-					Expect(w.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-					Expect(err.Error).To(Equal("http: named cookie not present"))
-				})
-			})
-		})
-
-		Describe("/user/img/update-profile", func() {
-			When("update image profile with GET method", func() {
-				It("should return a wrong method", func() {
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodGet, "/user/img/update-profile", nil)
-					server.Handler().ServeHTTP(w, r)
-
-					ErrorResponse := model.ErrorResponse{}
-					json.NewDecoder(w.Body).Decode(&ErrorResponse)
-					Expect(w.Result().StatusCode).To(Equal(http.StatusMethodNotAllowed))
-					Expect(ErrorResponse.Error).To(Equal("Method is not allowed!"))
-				})
-			})
-
-			When("update image profile with POST method, without login cookie", func() {
-				It("should return a cookie not found", func() {
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodPost, "/user/img/update-profile", nil)
-					server.Handler().ServeHTTP(w, r)
-
-					err := model.ErrorResponse{}
-					json.NewDecoder(w.Body).Decode(&err)
-
-					Expect(w.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-					Expect(err.Error).To(Equal("http: named cookie not present"))
-				})
-			})
-
-			When("send empty request body with POST method", func() {
-				It("should return internal server error", func() {
-					//register
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest(http.MethodPost, "/user/register", strings.NewReader("username=aditira&password=12345"))
-					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-					server.Handler().ServeHTTP(w, r)
-
-					//login
-					w = httptest.NewRecorder()
-					r = httptest.NewRequest(http.MethodPost, "/user/login", strings.NewReader("username=aditira&password=12345"))
-					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-					server.Handler().ServeHTTP(w, r)
-
-					var cookie *http.Cookie
-					var isCookieTokenExist bool
-					for _, c := range w.Result().Cookies() {
-						if c.Name == "session_token" {
-							isCookieTokenExist = true
-							cookie = c
-						}
-					}
-					Expect(isCookieTokenExist).To(BeTrue())
-
-					//read image profile
-					w = httptest.NewRecorder()
-					r = httptest.NewRequest(http.MethodPost, "/user/img/update-profile", nil)
-					r.AddCookie(cookie)
-					server.Handler().ServeHTTP(w, r)
-
-					Expect(w.Result().StatusCode).To(Equal(http.StatusInternalServerError))
-
-					userRepo.ResetUser()
-					sessionRepo.ResetSessions()
 				})
 			})
 

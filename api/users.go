@@ -13,8 +13,8 @@ import (
 func (api *API) Register(w http.ResponseWriter, r *http.Request) {
 	// Read username and password request with FormValue.
 	creds := model.Credentials{
-		Password: r.FormValue("username"),
-		Username: r.FormValue("password"),
+		Username: r.PostFormValue("username"),
+		Password: r.PostFormValue("password"),
 	} // TODO: replace this
 
 	// Handle request if creds is empty send response code 400, and message "Username or Password empty"
@@ -51,8 +51,8 @@ func (api *API) Register(w http.ResponseWriter, r *http.Request) {
 func (api *API) Login(w http.ResponseWriter, r *http.Request) {
 	// Read usernmae and password request with FormValue.
 	creds := model.Credentials{
-		Password: r.FormValue("username"),
-		Username: r.FormValue("password"),
+		Username: r.PostFormValue("username"),
+		Password: r.PostFormValue("password"),
 	} // TODO: replace this
 
 	// Handle request if creds is empty send response code 400, and message "Username or Password empty"
@@ -80,7 +80,7 @@ func (api *API) Login(w http.ResponseWriter, r *http.Request) {
 	} // TODO: replace this
 	err = api.sessionsRepo.AddSessions(session)
 
-	r.AddCookie(&http.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:    "session_token",
 		Value:   session.Token,
 		Path:    "/",
@@ -93,12 +93,22 @@ func (api *API) Login(w http.ResponseWriter, r *http.Request) {
 func (api *API) Logout(w http.ResponseWriter, r *http.Request) {
 	//Read session_token and get Value:
 	cookie, _ := r.Cookie("session_token")
-	sessionToken := cookie.String() // TODO: replace this
+	if cookie == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(model.ErrorResponse{Error: "http: named cookie not present"})
+		return
+	}
+	sessionToken := cookie.Value // TODO: replace this
 
-	api.sessionsRepo.DeleteSessions(sessionToken)
+	_ = api.sessionsRepo.DeleteSessions(sessionToken)
 
 	//Set Cookie name session_token value to empty and set expires time to Now:
 	// TODO: answer here
+	http.SetCookie(w, &http.Cookie{
+		Name:  "session_token",
+		Value: "",
+		Path:  "/",
+	})
 
 	filepath := path.Join("views", "login.html")
 	tmpl, err := template.ParseFiles(filepath)
